@@ -11,6 +11,7 @@
   inputs.src-datamancer-v0_1_2.ref   = "refs/tags/v0.1.2";
   inputs.src-datamancer-v0_1_2.owner = "SciNim";
   inputs.src-datamancer-v0_1_2.repo  = "datamancer";
+  inputs.src-datamancer-v0_1_2.dir   = "";
   inputs.src-datamancer-v0_1_2.type  = "github";
   
   inputs."arraymancer".owner = "nim-nix-pkgs";
