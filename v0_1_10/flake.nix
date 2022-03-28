@@ -11,8 +11,15 @@
   inputs.src-datamancer-v0_1_10.ref   = "refs/tags/v0.1.10";
   inputs.src-datamancer-v0_1_10.owner = "SciNim";
   inputs.src-datamancer-v0_1_10.repo  = "datamancer";
-  inputs.src-datamancer-v0_1_10.dir   = "";
   inputs.src-datamancer-v0_1_10.type  = "github";
+  
+  inputs."github.com/vindaar/seqmath".owner = "nim-nix-pkgs";
+  inputs."github.com/vindaar/seqmath".ref   = "master";
+  inputs."github.com/vindaar/seqmath".repo  = "github.com/vindaar/seqmath";
+  inputs."github.com/vindaar/seqmath".dir   = "";
+  inputs."github.com/vindaar/seqmath".type  = "github";
+  inputs."github.com/vindaar/seqmath".inputs.nixpkgs.follows = "nixpkgs";
+  inputs."github.com/vindaar/seqmath".inputs.flakeNimbleLib.follows = "flakeNimbleLib";
   
   inputs."arraymancer".owner = "nim-nix-pkgs";
   inputs."arraymancer".ref   = "master";
