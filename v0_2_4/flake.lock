@@ -310,7 +310,7 @@
         "flakeNimbleLib": "flakeNimbleLib",
         "github-vindaar-seqmath": "github-vindaar-seqmath",
         "nixpkgs": "nixpkgs",
-        "src-datamancer-master": "src-datamancer-master"
+        "src-datamancer-v0_2_4": "src-datamancer-v0_2_4"
       }
     },
     "src-arraymancer-v0_7_12": {
@@ -347,7 +347,7 @@
         "type": "github"
       }
     },
-    "src-datamancer-master": {
+    "src-datamancer-v0_2_4": {
       "flake": false,
       "locked": {
         "lastModified": 1654074768,
@@ -359,7 +359,7 @@
       },
       "original": {
         "owner": "SciNim",
-        "ref": "refs/heads/master",
+        "ref": "refs/tags/v0.2.4",
         "repo": "datamancer",
         "type": "github"
       }
