@@ -310,7 +310,7 @@
         "flakeNimbleLib": "flakeNimbleLib",
         "github-vindaar-seqmath": "github-vindaar-seqmath",
         "nixpkgs": "nixpkgs",
-        "src-datamancer-master": "src-datamancer-master"
+        "src-datamancer-v0_2_7": "src-datamancer-v0_2_7"
       }
     },
     "src-arraymancer-v0_7_13": {
@@ -347,19 +347,19 @@
         "type": "github"
       }
     },
-    "src-datamancer-master": {
+    "src-datamancer-v0_2_7": {
       "flake": false,
       "locked": {
-        "lastModified": 1658487938,
-        "narHash": "sha256-eNDoVufQGChpg/ppCHU8Px4xYzWOMm9ECoN8/HHDRro=",
+        "lastModified": 1658397657,
+        "narHash": "sha256-yc5xIv4PhosWzfcS5w/ao6Yv6rR4CBSsfci0tlaWiUY=",
         "owner": "SciNim",
         "repo": "datamancer",
-        "rev": "b425db26b98ab74ad84a74eb066d12cd4b6c083b",
+        "rev": "fbcbb92267b9ebeda092735ec8785a19cbb3b942",
         "type": "github"
       },
       "original": {
         "owner": "SciNim",
-        "ref": "refs/heads/master",
+        "ref": "refs/tags/v0.2.7",
         "repo": "datamancer",
         "type": "github"
       }
