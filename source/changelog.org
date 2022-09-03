@@ -1,0 +1,378 @@
+* v0.3.4
+- fix issues with =toDf= if only single argument given (with and
+  without string names) not setting DF length / raising CT error
+- add =to= option to convert type of data frame
+- some more internal macro logic cleanup  
+* v0.3.3
+- define =ScalarLike= concept to match types that can be converted to
+  =float= via =.float= for e.g. units to have a =%~= Value conversion
+  for them
+- minor cleanup of macro logic
+- rename =genColumn= to =defColumn=
+- =toDf= now supports assignment of generic arguments as well, as long
+  as the column types required have been generated already.
+- =defColumn= now generates all combinations of the given types
+- fixes some issues with =unionType= getting confused
+- makes =toColumn= work correctly with =array=  
+* v0.3.2
+- fix regression in =ggplotnim= formula due to badly determined result
+  type. Only use resulting type of =Preface= if type acceptable
+  (e.g. not generic)
+- fix =toColumn= for single element =Column= construction  
+* v0.3.1
+- keep conversions from other number types to =int= and =float= after
+  all in the context of =toDf= and =toColumn=.
+* v0.3.0 
+*MAJOR, POSSIBLY BREAKING*: Add experimental support for "non-generic generic
+=Columns=".
+
+*See the bottom for a list of known breaking changes*.
+
+What does that mean?
+
+First of all the =DataFrame= type is now an alias to
+=DataTable[Column]=. =DataTable= is a new name for a generic version
+of =DataFrame= to avoid breaking changes when making =DataFrame=
+generic. Current code should just continue to work fine.
+
+The existing =ColumnKind= enum now has an additional member called
+=colGeneric=. This value is used in other variants of a =Column= like
+type, defined by a =ColumnLike= concept. Essentially, these types are
+equivalent to =Column=, but contain additional fields in the
+=colGeneric= branch. For example consider an extended =ColumnLike=
+type that can also store =KiloGram= and =Meter= units (from =unchained=):
+#+begin_src nim
+type
+  ColumnKiloGram|Meter = ref object
+    len*: int
+    case kind*: ColKind
+    of colFloat:
+      fCol*: Tensor[float]
+    of colInt:
+      iCol*: Tensor[int]
+    of colBool:
+      bCol*: Tensor[bool]
+    of colString:
+      sCol*: Tensor[string]
+    of colObject:
+      oCol*: Tensor[Value]
+    of colConstant:
+      cCol*: Value
+    of colNone:
+      nil
+    # up to here the same type as `Column`
+    of colGeneric:
+      # depending on the instance it the generic stores `KiloGram` or `Meter` data
+      case gkKind: GenericKiloGram|MeterKind # an auto generated enum for gen eric types
+      of gkKiloGram:
+        gKiloGram: Tensor[KiloGram] 
+      of gkMeter:
+        gMeter: Tensor[Meter]
+#+end_src
+This generalizes to any number of generics.
+
+Such a new =Column= type is generated using the =genColumn= macro:
+#+begin_src nim
+genColumn(KiloGram, Meter)
+#+end_src
+to generate the above.
+
+After generating the new type, it can be accessed using:
+#+begin_src nim
+colType(KiloGram, Meter) # <- returns the type 
+#+end_src
+
+To construct a =DataTable= of this type, you can do:
+#+begin_src nim
+let df = colType(KiloGram, Meter).newDataTable() # or `newDataTable(colType(KiloGram, Meter))` of course
+#+end_src
+
+Further an existing =DataTable= can be extended by a new type column
+using:
+#+begin_src nim
+let df = newDataFrame() # construct an old school data frame
+# ... put in some data
+let dfKg = df.extendDataFrame("foo" # <- column name
+                              @[1.kg, 2.kg]) # <- fill with kilo gram data
+#+end_src
+if the =ColumnKiloGram= type has been generated before using
+=genColumn(KiloGram)= this will return a =DataTable[KiloGram]=
+containing the old data of =df= as well as a new column called ="foo"=
+of type =KiloGram=.
+
+=mutate= also works with formulas that access generic types or
+generate columns of new generic types. There *are* certain limitations
+currently though. In some cases the formula may need to be aware of
+the type of the =DataTable= it acts on. For this there is a new macro,
+=dfFn=, which wraps around a regular =f{}= macro and receives the
+=DataTable= it should act on:
+#+begin_src nim
+genColumn(KiloGram, KiloGram²)
+let dfKg2 = dfKg.mutate(dfFn(dfKg, f{KiloGram -> KiloGram²: "kg2" ~ `kg` * `kg`}))
+#+end_src
+as this is a bit annoying, there is a =mutate2= (the name is
+consciously stupid, as a proper name still hasn't been chosen) that
+does this automatically:
+#+begin_src nim
+genColumn(KiloGram, KiloGram²)
+let dfKg2 = dfKg.mutate2(f{KiloGram -> KiloGram²: "kg2" ~ `kg` * `kg`})
+#+end_src
+
+Columns of course only have to be generated once.
+
+Note: one thing when dealing with multiple columns of different types
+to keep in mind (as this surely will come up more now): The =idx= and
+=col= helpers in formulas, support explicit type annotations for
+individual columns:
+#+begin_src nim
+f{float -> Meter: "foo" ~ `x` * idx(`y`, Meter)}
+# where `x` will be read as `float` and `y` as `Meter`!
+#+end_src
+
+Many things are likely to break... :)
+
+See the [[playground/non_generic_generics.nim]] for a few examples for
+usage.
+
+The release is a bit less refined than I would have liked, but as the
+code is (as far as I can tell), not breaking existing code and mostly
+working, I want to merge it now, to test it properly in real usage and
+fix things along the way. Otherwise it will be on ice forever.
+
+The commit that contains the added code is squashed as the development
+code is ultra messy. Check out the =nonGenericGenerics= branch (or PR)
+or the =cleanUpCommitsForRebase= branch (or PR) for the full history.
+
+Known *breaking changes* and issues:
+- assigning data of types that can be converted to =int= or =float=
+  (e.g. =int8=) to a DF does *not* auto convert them anymore. This was
+  always a helper to store them, but in the future once this feature
+  is more refined, it'll be better to store them as is
+- =colGeneric= is a new enum field for =ColumnKind= and thus has to be
+  handled in code dealing with the enum manually  
+
+* v0.2.10
+- remove outdated warning about failed type deduction in formulas
+* v0.2.9
+This release gets rid of all hints during compile time, afaict.
+- remove unused imports
+- make sure variables follow same naming
+- remove dead code
+- add =styles:usage= to =nim.cfg=
+* v0.2.8
+- *BREAKING*: change semantics of assignment formula (using =<-=) in
+  the context of =mutate=. Previously, using such formulas in a
+  =mutate= (or =transmute=) call would end up renaming a column from
+  RHS to LHS. However, this was never clearly communicated & was a bit
+  unclear. In particular it made it impossible to generate a constant
+  column in a =mutate= call, which seems much more useful to me.
+  To rename a column, simply use the =rename= procedure as
+  before. Note that a =f{"bar" <- "foo"}= formula is required in that
+  case.
+- raise an exception in =rename= if a formula of different kind than
+  =fkAssign= is given
+- change default printing width of columns in a DF. Make them a bit
+  wider to accommodate float columns printed in exp notation.
+* v0.2.7
+- another quick release to help with some windows line ending CSV
+  files
+  - adds a =lineBreak= and =eat= option to =readCsv= to help with
+    certain windows style line ending CSV files in which otherwise we
+    might miscount the number of lines
+* v0.2.6
+- hotfix release fixing an issue with =readCsv=.
+  - if a file contained columns that do not allow us to determine
+    types, fixes an issue in which parsing of them failed, due to a
+    missing reset of =col=
+  - add a =maxGuesses= argument to =readCsv= to stop guessing types
+    after this many rows (set to 'object' columns in that case)
+  - fix a small issue in which we always entered the =skipLines= loop,
+    even if we didn't have to skip any lines
+* v0.2.5
+- add support for reading CSV files from http and https URLs.
+- do not ignore `skipInitialSpace` and `quote` readCsv arguments.
+
+* v0.2.4
+- replace an assertion by a proper check in =summarize= if user hands
+  a non reducing formula to it
+- replace usages of =seqsToDf= in the docs
+- *BREAKING*: in =readCsv= the =colNames= argument, if any are given,
+  now implies we _skip_ the parsing of the header completely. If there
+  _is_ a header in the file that is to be ignored, =colNames= must be
+  combined with =skipLines=! See also the updated docstring.
+- possibly breaking: when parsing CSV files with space / tab separators, spacing at the
+  end of the lines does not cause issues anymore (they previously
+  caused us to count them as real columns, meaning possible crashes
+  due to number of column mismatches). This _can_ be breaking for a
+  user, but in that case they relied on unspecified behavior. Empty
+  columns at the beginning or ending in the file are a bit crazy for
+  space based seps. However, we might add a =skipInitialSpace=
+  equivalent for this in the future.
+* v0.2.3
+- =select= now respects the order of the given columns, i.e. the order
+  of the columns in the resulting DF are in the order of the given
+  columns
+- add =relocate= to change the column order of one or more keys
+- add experimental operation to access column at index =i= using
+  =df[[i]]= syntax
+* v0.2.2
+- fix CSV parsing for files with fully empty columns
+- allow printing of columns of kind =colNone=
+- add filename as title to =showBrowser= calls  
+* v0.2.1
+- fix regression when calling =arrange= with purely column references
+  to constant columns
+* v0.2.0
+- constant =DataFrame= columns have seen improvements. Before most
+  operations on them would convert them to a non-constant column,
+  often forced to convert to an object column. Now, most operations
+  (that make sense) are supported on constants themselves and if a
+  non-constant conversion is required, it aims to use the type
+  corresponding to the underlying =Value= kind of the constant. That
+  way conversions of constants to full columns should now lead to
+  native (float, int, string, bool) tensors (unless an operation with
+  another native, incompatible type is performed)
+- some bugs were fixed that could cause reference semantics of
+  dataframes to shine through when using =filter=
+- *BREAKING*: the =toValueKind= procedure now takes a =Column= instead
+  of a =ColumnKind=. This is to be able to handle the constant to full
+  conversion properly. Note: A deprecated variant of the former
+  version is still around!
+- add =filterToIdx=, which takes a DF and a sequence / tensor of
+  integers. The procedure will keep only those rows of the DF whose
+  indices are part of the seq/Tensor
+- slight performance improvements for the parsing of CSV files (larger
+  for string heavy files) by avoiding an unnecessary =newString= call
+  (yeah, =setLen= resizes for you if needed...)
+- allow more valid Nim code inside of =f{}= formulas, e.g. if
+  expressions and block statements
+- fix type determinations in =f{}= formulas, if a procedure with
+  default parameters, but no explicit type information is given.  
+- certain expressions in =f{}= formulas (for example
+  =isNaN(idx("foo"))=) could produce unintended CT errors and work now
+  (sorry, had to add a =when compiles= check :( ).
+- experimental support for "full formulas" as I call them that allow
+  to have more control over variables in the scope of the formula:
+  #+begin_src nim
+  formula:
+    preface:
+      foo in df["Foo", float]
+      bar in baz(df["Bar", int])
+    loop:
+      bar^2.float + foo  
+  #+end_src
+  allows for custom variable names inside of the context (and more
+  importantly) to perform a full column operation (e.g. =baz=) on a
+  column *before* the loop and use the elements of that operation
+  inside of the loop. Note that this is _not_ for *reducing* operations
+  on columns (i.e. =mean(df["Bar", float])=)! It is still planned to
+  lift reducing operations out of the loop body, but that is still
+  pending.
+- *SEMI-BREAKING*: add preliminary support for reducing formulas that require a =for=
+  loop. This (currently) allows for ~res += <formula>~ like statements
+  inside of a loop instead of just ~res = <formula>~ where in the
+  latter the formula must produce a scalar by itself (i.e. does not
+  allow *element wise* access to columns). Now a formula that accesses
+  a single element via =idx(...)= will produce a loop with an
+  accumulation.
+  Note: to make use of this feature you *must* use the full formula
+  syntax, as otherwise the default value of =res= is unclear.
+  #+begin_src nim
+  formula:
+    preface:
+      var res = 1.0
+      Bidx in df["B", float]
+    loop:
+      res *= Bidx * 1.5
+  #+end_src
+- add =lag=, =lead= procedures that take a =Tensor/Column= and return
+  a new =Tensor/Column= that is shiftet forward / backward N elements
+  (the left overs are zeroed by default, but adjustable using =fill= argument)
+- the =showBrowser= helper to view a =DataFrame= in the browser now
+  adds an additional "index" column
+- improve performance of =groups= iterator (particularly in cases
+  where the DF is already sorted / the sorting is cheap)
+- fix type deduction issues in formulas using dot expressions for
+  certain cases  
+* v0.1.11
+- add convenience comparison operators for =Value= elements of a
+  column with regular types *within a =f{}= formula* (they are emitted
+  as templates into the closure scope to avoid having them available
+  in all scopes).
+  Use the =convenienceValueComparisons= template to emit them to a
+  local scope if desired outside formula scopes.
+* v0.1.10
+- make sure to only import and export =arraymancer/tensor= submodule
+- fix CSV parsing wrt. empty fields (treated as NaN) and explicit NaN
+  & Inf values
+- fix CSV parsing of files with extraneous newlines
+- fix CSV parsing with missing values at the end of a line (becomes
+  =NaN=)
+- fix CSV parsing of empty fields if missing in first row and element
+  is *not* float
+- add more parsing tests
+* v0.1.9
+- add basic implementation of =spread= (inverse of =gather=; similar
+  to dplyr =pivot_wider=). The current implementation is rather basic
+  and performance may be suboptimal for very large data frames.
+- add =null= helper to create a =VNull Value=
+- significantly improve the docs of the =dataframe.nim= module.
+- fixes an issue where unique column reference names were combined
+  into the same column due to a bad name generation algorithm
+- significantly improves performance in applications in which
+  allocation of memory is a bottleneck (tensors were zero
+  initialized).
+- disable formula output at CT by default. Compile with
+  =-d:echoFormulas= to see the output.
+- remove CT warnings for unrelated stuff (node kinds)  
+* v0.1.8
+- avoid some object conversions in column operations (ref #11)
+- add ~[]=~ overloads for columns for slice assignments
+- *significantly* improve performance of =mutate/transmute= operations
+  for grouped dataframes (O(150,000) groups in < 0.5 s possible now)
+- fixes #12 by avoiding hashing of columns. Some performance
+  regression in =innerJoin=, =setDiff= (~2x slower in bad cases).    
+* v0.1.7
+- allow assignment of constants in =seqsToDf=
+- allow assignment of scalars to DF as column directly
+- add filename argument to =showBrowser=
+- make =compileFormulaImpl= actually typed to make formulas work
+  correctly inside of generics (ref =ggplotnim=
+  https://github.com/Vindaar/ggplotnim/issues/116
+- change internal macro type logic to use strings
+  
+* v0.1.6
+- fix slicing of constant columns
+
+* v0.1.5
+- fully qualify =Value= on scalar formula construction
+
+* v0.1.4
+- fix formulas (and type deduction) for certain use cases involving
+  =nnkBracketExpr= that are *not* references to columns
+
+* v0.1.3
+- improve type deduction capabilities for infix nodes
+- add overload for =drop= that doesn't just work on a mutable data
+  frame
+- fix reference semantics issues if DF is modified and visible in
+  result (only data is shared, but columns should be respected)
+- =arrange= now also takes a =varargs[string]= instead of a
+  =seq=. While there is still a bug of not properly being able to use
+  varargs, at least an array is possible (and hopefully at some point
+  proper varargs).
+
+* v0.1.2
+- CSV parser is more robust, can handle unnammed columns
+- explicit types in =idx=, =col= column reference finally works
+  (e.g. =idx("foo", float)= accesses the column "foo" as a float
+  tensor overwriting type deductions and type hints)
+
+* v0.1.1
+- allow =nnkMacroDef= in =findType=
+- add development notes and ideas about rewrite of formula macro in =notes/formula_dev_notes.org=
+
+* v0.1.0
+
+- initial version of Datamancer based on =ggplotnim= data frame with
+  major formula macro rewrite
